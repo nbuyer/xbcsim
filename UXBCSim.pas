@@ -40,7 +40,7 @@ const TXCButtonsBits = 16;
 type  TXCButtonsWord = Word; // same size for TXCButtons
 
 type
-  // XBox control button set
+  // XBox controllor button set
   TXCButton = (xbUp, xbDown, xbLeft, xbRight, xbStart, xbBack,
     xbLThumb, xbRThumb, xbLShoulder, xbRShoulder, xbA, xbB, xbX, xbY,
     xbNone);
@@ -392,7 +392,7 @@ begin
       if Last.nDelayRT=0 then
       begin
         SIH.AddMouseClick(g_eXCTriggerRight);
-        case g_eXCTriggerLeft of
+        case g_eXCTriggerRight of
         TMouseButton.mbLeft: Result := Result or SIM_FLAG_MB_LEFT;
         TMouseButton.mbRight: Result := Result or SIM_FLAG_MB_RIGHT;
         TMouseButton.mbMiddle: Result := Result or SIM_FLAG_MB_MID;
