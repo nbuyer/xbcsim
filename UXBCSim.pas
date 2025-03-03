@@ -3,6 +3,8 @@ unit UXBCSim;
  XBox controller keyboard/mouse simulator by Edward G.
  v0.1 2025-03-02
    Initial version
+ v0.2 2025-03-03
+   Replace Sleep() with DoSleep()
 }
 
 {.$DEFINE DEBUGXBC} // debug output message
@@ -10,7 +12,7 @@ unit UXBCSim;
 interface
 
 uses
-  SysUtils, Classes, UITypes,
+  SysUtils, Classes, UITypes, Diagnostics, TimeSpan,
   Windows, XInput, SendInputHelper;
 
 const
@@ -210,8 +212,12 @@ begin
     end;
   end;
 
+{$IFDEF DEBUG}
   if rST.Gamepad.wButtons<>0 then
-    Sleep(0);
+  begin
+    if rST.dwPacketNumber<>0 then ; // set break point here
+  end;
+{$ENDIF}
   rCD.B := ConvertToButtons(rST.Gamepad.wButtons);
 
   // 0-255
@@ -476,6 +482,27 @@ begin
   end;
 end;
 
+function DoSleep(nMS: Integer; pbCancel: PBoolean): Integer;
+var
+  cSW: TStopWatch;
+  nTick, nTick2: Int64;
+begin
+  Result := 0;
+  cSW := TStopWatch.Create;
+  nTick := cSW.GetTimeStamp;
+  nTick2 := nTick+(TTimeSpan.TicksPerMillisecond)*nMS;
+  repeat
+    SysUtils.Sleep(10);
+    if pbCancel<>nil then
+      if pbCancel^ then
+      begin
+        Result := -1;
+        Break;
+      end;
+    nTick := cSW.GetTimeStamp;
+  until nTick>=nTick2;
+end;
+
 { TXControllerSimThread }
 
 constructor TXControllerSimThread.Create(nDev, nInterval: Integer; bDisable: Boolean);
@@ -509,7 +536,7 @@ begin
   try
     while not Terminated do
     begin
-      Sleep(m_nInterval);
+      DoSleep(m_nInterval, @Terminated);
 lblAgain:
       if Terminated then Break;
       if not m_bDisable then
@@ -546,13 +573,13 @@ lblAgain:
         if n2 and SIM_FLAG_MOUSE_MOVE<>0 then
         begin
           // mouse move, no custom sleep
-          Sleep(g_nXCMouseMoveSleep);  // too fast if no sleep
+          DoSleep(g_nXCMouseMoveSleep, @Terminated);  // too fast if no sleep
           goto lblAgain;
         end;
         if n1 and SIM_FLAG_REPEAT_KEY<>0 then
         begin
           // repeated key
-          if g_nXCRepeatSleep>0 then Sleep(g_nXCRepeatSleep);
+          if g_nXCRepeatSleep>0 then DoSleep(g_nXCRepeatSleep, @Terminated);
         end;
       end else
       begin
@@ -606,10 +633,10 @@ var
   rCD: TXControllerData;
 begin
   // wait for a while
-  Sleep(m_nWait);
+  DoSleep(m_nWait, @Terminated);
   while not Terminated do
   begin
-    Sleep(XBC_DEF_CHK_MS);
+    DoSleep(XBC_DEF_CHK_MS, @Terminated);
     try
       if GetXBControllerDataDiv(m_hDev, rCD)<>0 then Continue;
       begin
