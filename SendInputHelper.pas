@@ -25,8 +25,19 @@
 //   <https://www.delphipraxis.net/1188701-post17.html>
 //
 // @author Waldemar Derr <furevest@gmail.com>
+// Altered by Edward G. <nbuyer@gmail.com> 2025-03
 
 unit SendInputHelper;
+
+// EdwardG: compatible with VCL/FMX
+{$IF DECLARED(FireMonkeyVersion)}
+  {$DEFINE FRAMEWORK_FMX}
+{$ELSE}
+{$IFNDEF FRAMEWORK_FMX}
+  {$DEFINE FRAMEWORK_VCL}
+{$ENDIF}
+{$IFEND}
+
 
 interface
 
@@ -35,7 +46,11 @@ uses
   System.Classes,
   System.Types,
   System.UITypes,
+{$IFDEF FRAMEWORK_FMX}
   FMX.Forms,
+{$ELSE}
+  Forms,
+{$ENDIF}
   Generics.Collections,
   Winapi.Windows;
 
@@ -47,7 +62,7 @@ type
     sssShift = Ord(System.Classes.ssShift),
     sssAlt = Ord(System.Classes.ssAlt),
     sssCtrl = Ord(System.Classes.ssCtrl),
-    sssWin = Ord(System.Classes.ssCommand)); // EdwardG
+    sssWin = Ord(System.Classes.ssCommand)); // EdwardG: name conflict
 
   TSendInputHelper = class(TList<TInput>)
   protected
@@ -123,23 +138,6 @@ begin
   if Assigned(Inputs) then
     AddRange(Inputs);
 end;
-
-//UINT ScrollMouse(int scroll)
-{
-   INPUT input;
-   POINT pos;
-   GetCursorPos(&pos);
-
-   input.type = INPUT_MOUSE;
-   input.mi.dwFlags = MOUSEEVENTF_WHEEL;
-   input.mi.time = NULL; //Windows will do the timestamp
-   input.mi.mouseData = (DWORD)scroll; //A positive value indicates that the wheel was rotated forward, away from the user; a negative value indicates that the wheel was rotated backward, toward the user. One wheel click is defined as WHEEL_DELTA, which is 120.
-   input.mi.dx = pos.x;
-   input.mi.dy = pos.y;
-   input.mi.dwExtraInfo = GetMessageExtraInfo();
-
-   return SendInput(1, &input, sizeof(INPUT));
-}
 
 procedure TSendInputHelper.AddMouseClick(MouseButton: TMouseButton; Press, Release: Boolean);
 var
@@ -555,6 +553,38 @@ const
     Result := Round(Value * (COORDINATE_MAX / RefValue));
   end;
 
+{$IFNDEF FRAMEWORK_FMX}
+var
+  Flags: Cardinal;
+  RefSize: TSize;
+  DesktopRect: TRect;
+begin
+  SetLength(Result, 1);
+  Flags := MOUSEEVENTF_MOVE or MOUSEEVENTF_ABSOLUTE;
+
+  if DesktopCoordinates then
+  begin
+    DesktopRect := Screen.DesktopRect;
+    RefSize := DesktopRect.Size;
+
+    // Offset the origin to get the virtual screen coordinates
+    // This is only in multi monitor setups required.
+    if DesktopRect.Left <> 0 then
+      X := X - DesktopRect.Left;
+    if DesktopRect.Top <> 0 then
+      Y := Y - DesktopRect.Top;
+
+    Flags := Flags or MOUSEEVENTF_VIRTUALDESK
+  end
+  else
+    RefSize := Screen.PrimaryMonitor.BoundsRect.Size;
+
+
+  Result[0] := GetMouseInput(
+    NormalizeDimension(X, RefSize.cx), NormalizeDimension(Y, RefSize.cy), 0, Flags, 0);
+end;
+{$ELSE !FRAMEWORK_FMX}
+// EdwardG: made compiler shutup, not tested
 var
   Flags: Cardinal;
   RefSize: TSizeF;
@@ -584,6 +614,7 @@ begin
   Result[0] := GetMouseInput(
     NormalizeDimension(X, Trunc(RefSize.cx)), NormalizeDimension(Y, Trunc(RefSize.cy)), 0, Flags, 0);
 end;
+{$ENDIF !FRAMEWORK_FMX}
 
 // Return a TInputArray with keyboard inputs, to produce the passed string
 //
