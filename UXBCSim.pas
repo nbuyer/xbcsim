@@ -1,10 +1,12 @@
 unit UXBCSim;
 {
  XBox controller keyboard/mouse simulator by Edward G.
- v0.1 2025-03-02
-   Initial version
+ v0.3 2025-03-04
+ * Added workaround to ignore wakeup key by delaying 1 second
  v0.2 2025-03-03
-   Replace Sleep() with DoSleep()
+ * Replaced Sleep() with DoSleep()
+ v0.1 2025-03-02
+ * Initial version
 }
 
 {.$DEFINE DEBUGXBC} // debug output message
@@ -135,6 +137,8 @@ var
   g_nXCMouseMoveSleep: Integer = 10;
   // Repeated button sleep in MS
   g_nXCRepeatSleep: Integer = 150;
+  // Wakeup sleep in MS
+  g_nXCWakeupSleep: Integer = 1000;
 
 implementation
 
@@ -597,6 +601,9 @@ lblAgain:
                 m_eOnWakeUp(Self);
               except
               end;
+              // Workaround to ignore this key's up by waiting (1) second
+              DoSleep(g_nXCWakeupSleep, @Terminated);
+              if GetXBControllerDataDiv(m_hDev, rCD)=0 then rLastCD := rCD;
             end;
           end;
         end;
@@ -654,6 +661,5 @@ begin
     end;
   end;
 end;
-
 
 end.
